@@ -96,25 +96,98 @@ class Rpdb(pdb.Pdb):
         finally:
             self.shutdown()
 
+class TcpRpdb(Rpdb):
+    def __init__(self, addr, port):
+        """Initialize the socket and initialize pdb."""
 
-def set_trace(addr=DEFAULT_ADDR, port=DEFAULT_PORT, frame=None):
+        # Backup stdin and stdout before replacing them by the socket handle
+        self.old_stdout = sys.stdout
+        self.old_stdin = sys.stdin
+        self.port = port
+
+        # Open a 'reusable' socket to let the webapp reload on the same port
+        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.skt.connect((addr, port))
+        # Writes to stdout are forbidden in mod_wsgi environments
+        try:
+            sys.stderr.write("pdb is running on %s:%d\n"
+                             % self.skt.getpeername())
+        except IOError:
+            pass
+
+        handle = self.skt.makefile('rw')
+        pdb.Pdb.__init__(self, completekey='tab',
+                         stdin=FileObjectWrapper(handle, self.old_stdin),
+                         stdout=FileObjectWrapper(handle, self.old_stdin))
+        sys.stdout = sys.stdin = handle
+        self.handle = handle
+        OCCUPIED.claim(port, sys.stdout)
+    
+    def do_continue(self, arg):
+        """Clean-up and do underlying continue."""
+        try:
+            return pdb.Pdb.do_continue(self, arg)
+        finally:
+            pass
+
+    do_c = do_cont = do_continue
+    
+
+class UnixRpdb(Rpdb):
+    def __init__(self, path):
+        # Backup stdin and stdout before replacing them by the socket handle
+        self.old_stdout = sys.stdout
+        self.old_stdin = sys.stdin
+
+        # Open a 'reusable' socket to let the webapp reload on the same port
+        self.skt = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+        self.skt.connect(path)
+        # Writes to stdout are forbidden in mod_wsgi environments
+        try:
+            sys.stderr.write("pdb is running on %s\n"
+                             % self.skt.getpeername())
+        except IOError:
+            pass
+        
+        handle = self.skt.makefile('rw')
+        pdb.Pdb.__init__(self, completekey='tab',
+                         stdin=FileObjectWrapper(handle, self.old_stdin),
+                         stdout=FileObjectWrapper(handle, self.old_stdin))
+        sys.stdout = sys.stdin = handle
+        self.handle = handle
+        
+    def do_continue(self, arg):
+        """Clean-up and do underlying continue."""
+        try:
+            return pdb.Pdb.do_continue(self, arg)
+        finally:
+            pass
+
+    do_c = do_cont = do_continue
+
+
+def set_trace(addr=DEFAULT_ADDR, port=DEFAULT_PORT, path=None, frame=None):
     """Wrapper function to keep the same import x; x.set_trace() interface.
 
     We catch all the possible exceptions from pdb and cleanup.
 
     """
     try:
-        debugger = Rpdb(addr=addr, port=port)
+        if path is not None:
+            debugger = UnixRpdb(path)
+        else:
+            debugger = TcpRpdb(addr=addr, port=port)
+
+        debugger.set_trace(frame or sys._getframe().f_back)
     except socket.error:
         if OCCUPIED.is_claimed(port, sys.stdout):
             # rpdb is already on this port - good enough, let it go on:
             sys.stdout.write("(Recurrent rpdb invocation ignored)\n")
             return
         else:
-            # Port occupied by something else.
-            raise
-    try:
-        debugger.set_trace(frame or sys._getframe().f_back)
+            traceback.print_exc()
     except Exception:
         traceback.print_exc()
 
