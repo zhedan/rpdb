@@ -13,6 +13,7 @@ from functools import partial
 
 DEFAULT_ADDR = "127.0.0.1"
 DEFAULT_PORT = 4444
+DEBUG = False
 
 
 class FileObjectWrapper(object):
@@ -95,6 +96,7 @@ class Rpdb(pdb.Pdb):
             return pdb.Pdb.do_EOF(self, arg)
         finally:
             self.shutdown()
+
 
 class TcpRpdb(Rpdb):
     def __init__(self, addr, port):
@@ -187,9 +189,12 @@ def set_trace(addr=DEFAULT_ADDR, port=DEFAULT_PORT, path=None, frame=None):
             sys.stdout.write("(Recurrent rpdb invocation ignored)\n")
             return
         else:
-            traceback.print_exc()
+            if DEBUG:
+                traceback.print_exc()
+
     except Exception:
-        traceback.print_exc()
+        if DEBUG:
+            traceback.print_exc()
 
 
 def _trap_handler(addr, port, signum, frame):
@@ -239,7 +244,9 @@ class OccupiedPorts(object):
         del self.claims[port]
         self.lock.release()
 
+
 # {port: sys.stdout} pairs to track recursive rpdb invocation on same port.
 # This scheme doesn't interfere with recursive invocations on separate ports -
 # useful, eg, for concurrently debugging separate threads.
 OCCUPIED = OccupiedPorts()
+
