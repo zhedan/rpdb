@@ -22,7 +22,9 @@ Ensure rpdb in your sys.path
 
         then, listen at /var/log/my.sock
 
-3. do debug in rpdb at listening socket
+3. run application
+
+4. do debug in rpdb at where listening socket is running
 
 
 Trap List
