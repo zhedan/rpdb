@@ -107,7 +107,7 @@ EOF
 
 
 function main(){
-    local listen_dest="${1:-444}"
+    local listen_dest="${1:-4444}"
 
     if [ $# -eq 0 ]; then
       help
