@@ -15,6 +15,21 @@ DEFAULT_ADDR = "127.0.0.1"
 DEFAULT_PORT = 4444
 DEBUG = False
 
+class RpdbFileObject(socket._fileobject):
+    def __init__(self, sock, mode='rb', bufsize=-1, close=False):
+        super(RpdbFileObject, self).__init__(sock, mode, bufsize, close)
+
+        self.encoding = ""
+
+
+class RpdbSocket(socket.socket):
+    def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, 
+                 proto=0, _sock=None):
+        super(RpdbSocket, self).__init__(family, type, proto, _sock)
+
+    def makefile(self, mode='r', bufsize=-1):
+        return RpdbFileObject(self._sock, mode, bufsize) 
+
 
 class FileObjectWrapper(object):
     def __init__(self, fileobject, stdio):
@@ -42,7 +57,7 @@ class Rpdb(pdb.Pdb):
         self.port = port
 
         # Open a 'reusable' socket to let the webapp reload on the same port
-        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.skt = RpdbSocket(socket.AF_INET, socket.SOCK_STREAM)
         self.skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         self.skt.bind((addr, port))
         self.skt.listen(1)
@@ -108,7 +123,7 @@ class TcpRpdb(Rpdb):
         self.port = port
 
         # Open a 'reusable' socket to let the webapp reload on the same port
-        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.skt = RpdbSocket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.skt.connect((addr, port))
         # Writes to stdout are forbidden in mod_wsgi environments
@@ -143,7 +158,7 @@ class UnixRpdb(Rpdb):
         self.old_stdin = sys.stdin
 
         # Open a 'reusable' socket to let the webapp reload on the same port
-        self.skt = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.skt = RpdbSocket(socket.AF_UNIX, socket.SOCK_STREAM)
 
         self.skt.connect(path)
         # Writes to stdout are forbidden in mod_wsgi environments
@@ -172,9 +187,7 @@ class UnixRpdb(Rpdb):
 
 def set_trace(addr=DEFAULT_ADDR, port=DEFAULT_PORT, path=None, frame=None):
     """Wrapper function to keep the same import x; x.set_trace() interface.
-
     We catch all the possible exceptions from pdb and cleanup.
-
     """
     try:
         if path is not None:
@@ -216,10 +229,8 @@ def post_mortem(addr=DEFAULT_ADDR, port=DEFAULT_PORT):
 
 class OccupiedPorts(object):
     """Maintain rpdb port versus stdin/out file handles.
-
     Provides the means to determine whether or not a collision binding to a
     particular port is with an already operating rpdb session.
-
     Determination is according to whether a file handle is equal to what is
     registered against the specified port.
     """
@@ -249,4 +260,3 @@ class OccupiedPorts(object):
 # This scheme doesn't interfere with recursive invocations on separate ports -
 # useful, eg, for concurrently debugging separate threads.
 OCCUPIED = OccupiedPorts()
-
