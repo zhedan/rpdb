@@ -3,6 +3,7 @@
 import os
 from distutils.core import setup
 from io import open
+import glob
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -22,6 +23,7 @@ setup(
     author_email="b@janin.com",
     url="http://tamentis.com/projects/rpdb",
     packages=["rpdb"],
+    scripts=glob.glob('bin/*'),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",

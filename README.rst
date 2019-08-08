@@ -1,3 +1,8 @@
+Install
+===============
+
+python setup.py install
+
 User Guide
 ===============
 
@@ -26,7 +31,7 @@ Ensure rpdb in your sys.path
 
 4. do debug in rpdb at where listening socket is running
 
-5. exec py_rpdb.sh where you'd like to
+5. exec /usr/bin/py_rpdb.sh where you'd like to
 
 Trap List
 ============
