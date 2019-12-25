@@ -93,7 +93,7 @@ function do_tcp_listen() {
     lsuccess "  rpdb.set_trace('\$any_ip_in_your_host', $port)"
     lsuccess "When client connected, you can do debug like using pdb"
 
-    socat  TCP4-LISTEN:"$port" READLINE
+    socat  TCP4-LISTEN:"$port",reuseaddr READLINE
 }
 
 
